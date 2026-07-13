@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HoodScope — Token scan</title>
+<meta name="description" content="X-ray a Robinhood Chain token: HoodScore, holder bubblemap, insider clusters, concentration & risk.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<nav class="nav"><div class="wrap">
+  <a class="brand" href="index.html">
+    <svg viewBox="0 0 32 32" fill="none"><path d="M7 26c0-9 6-17 17-20-1 10-6 18-14 20-2 .5-3 .5-3 0Z" fill="#00C805"/><path d="M12 22c3-5 7-9 12-11" stroke="#04140a" stroke-width="1.6" stroke-linecap="round"/><circle cx="9" cy="24" r="2.4" fill="#5cff8a"/></svg>
+    Hood<b>Scope</b>
+  </a>
+  <div class="nav-spacer"></div>
+  <div style="flex:1;max-width:520px">
+    <div class="searchbox">
+      <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+      <input id="app-search" placeholder="Paste contract address (0x…)" autocomplete="off" spellcheck="false" style="padding:10px 74px 10px 40px;font-size:14px;border-radius:10px">
+      <button class="btn primary sm" data-scan style="position:absolute;right:5px;top:50%;transform:translateY(-50%)">Scan</button>
+    </div>
+    <div id="app-err" class="err" style="text-align:left;min-height:0"></div>
+  </div>
+</div></nav>
+
+<main class="app-main"><div class="wrap">
+  <div id="app-root"><div class="loader"><div class="spin"></div><div class="lt">Loading…</div></div></div>
+</div></main>
+
+<div id="tip"></div>
+
+<footer class="footer"><div class="wrap">
+  <div>HoodScope · independent analytics for Robinhood Chain. Not affiliated with Robinhood Markets, Inc.</div>
+  <p class="disclaimer">HoodScore and cluster signals are heuristics from public on-chain data, computed from the scanned holder set — they can be incomplete or wrong. Not financial advice. DYOR.</p>
+</div></footer>
+
+<script src="assets/util.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/gate.js"></script>
+<script src="assets/clusters.js"></script>
+<script src="assets/score.js"></script>
+<script src="assets/bubblemap.js"></script>
+<script src="assets/app.js"></script>
+<script>HoodScope.initApp();</script>
+</body>
+</html>

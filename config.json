@@ -1,0 +1,73 @@
+{
+  "_README": "HoodScope — single config point. Bubblemap + holder tracker for Robinhood Chain (NOXA tokens). Everything reads from this file. When you launch the HoodScope coin on NOXA, fill in 'coin' and flip 'monetization.enabled' to gate premium features. See DEPLOY.md.",
+
+  "brand": {
+    "name": "HoodScope",
+    "tagline": "See who really holds it.",
+    "sub": "X-ray vision for Robinhood Chain tokens.",
+    "twitter": "https://x.com/",
+    "docsUrl": ""
+  },
+
+  "chain": {
+    "name": "Robinhood Chain",
+    "chainId": 4663,
+    "chainIdHex": "0x1237",
+    "nativeSymbol": "ETH",
+    "rpcUrl": "https://rpc.mainnet.chain.robinhood.com",
+    "explorer": "https://robinhoodchain.blockscout.com"
+  },
+
+  "api": {
+    "_comment": "Blockscout REST API. mode 'direct' = the browser calls Blockscout directly (works today, CORS is open). mode 'cached' = calls the Supabase edge function first and falls back to direct. See supabase/.",
+    "mode": "direct",
+    "blockscoutBase": "https://robinhoodchain.blockscout.com/api/v2",
+    "supabaseFnUrl": "",
+    "requestDelayMs": 120
+  },
+
+  "launchpad": {
+    "_comment": "NOXA Fun — the launchpad this tracker is built around. The LauncherFactory emits TokenLaunched(token, deployer, dexFactory, ...) for every launch; token.launchFactory() returns this factory. Used to build the NOXA-only feed and the 'NOXA verified' badge. factory address confirmed on-chain from CASHCAT.",
+    "name": "NOXA Fun",
+    "url": "https://fun.noxa.fi/robinhood",
+    "factory": "0xd9ec2db5f3d1b236843925949fe5bd8a3836fccb",
+    "tokenLaunchedTopic": "0xdb51ea9ad51ab453a65a4cb7e60c3cb378c9501bb002609f8f97778fb6c4235a",
+    "launchFactorySelector": "0x536dac9b"
+  },
+
+  "feed": {
+    "_comment": "Landing feed. source 'noxa' = only tokens launched via the NOXA factory (recent TokenLaunched events, newest first). source 'chain' = all Robinhood Chain ERC-20s by 24h volume. sort: 'new' or 'holders'. When you expand to other chains, add their factories and flip source.",
+    "source": "noxa",
+    "sort": "new",
+    "limit": 24
+  },
+
+  "tracker": {
+    "_comment": "Bubblemap + analysis tuning.",
+    "topHoldersFree": 50,
+    "topHoldersPremium": 250,
+    "edgeScanHoldersFree": 20,
+    "edgeScanHoldersPremium": 120,
+    "transfersPerHolder": 30,
+    "clusterMinSupplyPctFlag": 5,
+    "concentrationTop": 10,
+    "hideKnownContracts": true
+  },
+
+  "coin": {
+    "_comment": "The HoodScope coin (you launch on NOXA). Fill after launch. Used for the coin teaser + token-gating.",
+    "symbol": "SCOPE",
+    "name": "HoodScope",
+    "mint": "",
+    "decimals": 18,
+    "buyUrl": "",
+    "chartUrl": ""
+  },
+
+  "monetization": {
+    "_comment": "Token-gated premium. When enabled, connecting a wallet holding >= gateMinBalance of the coin unlocks premium tracker limits + alerts. Wire in assets/gate.js (stub provided). Off by default so the site is fully usable pre-launch.",
+    "enabled": false,
+    "gateMinBalance": 100000,
+    "premiumFeatures": ["deeper-holders", "full-cluster-scan", "alerts", "watchlist", "csv-export"]
+  }
+}

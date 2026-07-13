@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HoodScope — Home preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<nav class="nav"><div class="wrap">
+  <a class="brand" href="index.html"><svg viewBox="0 0 32 32" fill="none"><path d="M7 26c0-9 6-17 17-20-1 10-6 18-14 20-2 .5-3 .5-3 0Z" fill="#00C805"/><path d="M12 22c3-5 7-9 12-11" stroke="#04140a" stroke-width="1.6" stroke-linecap="round"/><circle cx="9" cy="24" r="2.4" fill="#5cff8a"/></svg>Hood<b>Scope</b></a>
+  <div class="nav-spacer"></div>
+  <a href="#coin" style="color:var(--text-dim);font-size:14px;font-weight:500">$SCOPE</a>
+</div></nav>
+
+<header class="hero"><canvas id="herofx"></canvas><div class="wrap">
+  <div class="pill"><span class="dot"></span> Live on Robinhood Chain · powered by NOXA data</div>
+  <h1>X-ray any token<br>before you <em>ape</em>.</h1>
+  <p class="lede">Paste a contract address. HoodScope scores it, maps every holder, and exposes insider clusters — in seconds, straight from the chain.</p>
+  <div class="hero-search">
+    <div class="searchbox big">
+      <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+      <input id="hero-search" placeholder="Paste token contract address  (0x…)" value="0xd833ab5dae2a6a312ecb67cc65217671e6e98ff4" spellcheck="false">
+      <button class="btn primary" onclick="location.href='HoodScope_Preview.html'">Scan</button>
+    </div>
+    <div class="err"></div>
+    <div class="chips">
+      <a class="chip" href="HoodScope_Preview.html"><span class="cd"></span>GOLD <span class="faint">140 hold</span></a>
+      <a class="chip" href="HoodScope_Preview.html"><span class="cd"></span>CASHCAT <span class="faint">24K hold</span></a>
+      <a class="chip" href="HoodScope_Preview.html"><span class="cd"></span>DEBTCAT <span class="faint">175 hold</span></a>
+      <a class="chip" href="HoodScope_Preview.html"><span class="cd"></span>doginhood <span class="faint">94 hold</span></a>
+      <a class="chip" href="HoodScope_Preview.html"><span class="cd"></span>HOODMAXXING <span class="faint">28 hold</span></a>
+    </div>
+  </div>
+</div></header>
+
+<section class="section" id="coin"><div class="wrap">
+  <div class="teaser">
+    <div class="pre-badge">Launching on NOXA</div>
+    <h2 style="margin-top:10px">$SCOPE — the HoodScope coin</h2>
+    <p>HoodScope stays free. Holding $SCOPE unlocks premium: deeper holder scans, full cluster analysis, live whale alerts, watchlists, and CSV export.</p>
+    <a class="btn primary" href="https://fun.noxa.fi/robinhood" target="_blank">Get $SCOPE on NOXA</a>
+  </div>
+</div></section>
+
+<footer class="footer"><div class="wrap">
+  <div>© 2026 HoodScope · independent analytics for Robinhood Chain. Not affiliated with Robinhood Markets, Inc.</div>
+  <p class="disclaimer">HoodScore and cluster signals are heuristics from public on-chain data — not financial advice. Always DYOR.</p>
+</div></footer>
+<div style="position:fixed;bottom:14px;right:14px;background:var(--bg-2);border:1px solid var(--line-2);color:var(--text-dim);font-size:12px;padding:7px 12px;border-radius:999px">Home preview · click Scan or a chip</div>
+
+<script>
+(function(){
+  var c=document.getElementById('herofx'),x=c.getContext('2d'),W,H,DPR,bs=[];
+  function rs(){DPR=Math.min(2,devicePixelRatio||1);W=c.clientWidth;H=c.clientHeight;c.width=W*DPR;c.height=H*DPR;x.setTransform(DPR,0,0,DPR,0,0);}
+  function seed(){bs=[];var n=Math.round(W/70);for(var i=0;i<n;i++)bs.push({x:Math.random()*W,y:Math.random()*H,r:6+Math.random()*46,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,a:.04+Math.random()*.10});}
+  function loop(){x.clearRect(0,0,W,H);for(var i=0;i<bs.length;i++){var b=bs[i];b.x+=b.vx;b.y+=b.vy;if(b.x<-60)b.x=W+60;if(b.x>W+60)b.x=-60;if(b.y<-60)b.y=H+60;if(b.y>H+60)b.y=-60;var g=x.createRadialGradient(b.x-b.r*.3,b.y-b.r*.3,b.r*.1,b.x,b.y,b.r);g.addColorStop(0,'rgba(92,255,138,'+(b.a*1.4)+')');g.addColorStop(1,'rgba(0,200,5,0)');x.beginPath();x.arc(b.x,b.y,b.r,0,7);x.fillStyle=g;x.fill();x.strokeStyle='rgba(0,200,5,'+(b.a*1.1)+')';x.lineWidth=1;x.stroke();}requestAnimationFrame(loop);}
+  rs();seed();loop();addEventListener('resize',function(){rs();seed();});
+})();
+</script>
+</body>
+</html>

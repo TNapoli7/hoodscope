@@ -1,0 +1,9 @@
+HoodScope_Preview.html
+HoodScope_Home_Preview.html
+supabase
+node_modules
+*.log
+.DS_Store
+_*
+gold.json
+payloads.json
