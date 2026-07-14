@@ -9,43 +9,50 @@
   // Each factor returns { score:0-100, detail } and carries a weight.
   function score(sig) {
     const holders = sig.holdersCount || sig.nodesCount || 0;
-    const conc = sig.top10WalletPct || 0;          // top-10 non-contract concentration
-    const cluster = sig.largestClusterPct || 0;    // biggest linked-wallet group
+    const conc = sig.top10WalletPct || 0;             // top-10 wallet concentration
+    const other = sig.otherContractPct || 0;          // non-pool contracts (multisig/vesting) = hidden supply
+    const cluster = sig.largestClusterPct || 0;
     const clusterCount = sig.clusterCount || 0;
-    const lp = sig.lpPct || 0;                      // supply held by contracts/LP
+    const pool = sig.poolPct || 0;                    // supply sitting in the LP pool only
+    const creatorPct = sig.creatorPct;                // null = unknown
     const isNoxa = !!sig.isNoxa;
     const isScam = !!sig.isScam;
 
-    // 1. Distribution — the single most important signal.
-    const distribution = clamp(100 - Math.max(0, conc - 8) * 2.6, 0, 100);
-    // 2. Insider clusters — connected wallets holding a big combined slice is the classic red flag.
+    // 1. Distribution — top wallets AND supply parked in non-pool contracts both count as concentration.
+    const effConc = conc + other;
+    const distribution = clamp(100 - Math.max(0, effConc - 8) * 2.6, 0, 100);
+    // 2. Insider clusters.
     const clusters = clamp(100 - cluster * 6 - Math.max(0, clusterCount - 1) * 4, 0, 100);
-    // 3. Holder base — more independent holders = harder to manipulate (log scale, 5k ~ full marks).
+    // 3. Creator holdings — a dev sitting on a big bag can dump. Unknown = mild neutral.
+    const creatorScore = creatorPct == null ? 65 : clamp(100 - Math.max(0, creatorPct - 2) * 5, 0, 100);
+    // 4. Holder base — log scale, ~5k = full marks.
     const base = holders > 0 ? clamp((Math.log10(holders) / Math.log10(5000)) * 100, 0, 100) : 0;
-    // 4. Liquidity — NOXA locks LP permanently; verified + real LP share = trustworthy.
+    // 5. Liquidity — NOXA locks the LP permanently; real pool share = trustworthy.
     let liquidity;
-    if (isNoxa && lp >= 3) liquidity = 92;
+    if (isNoxa && pool >= 3) liquidity = 92;
     else if (isNoxa) liquidity = 78;
-    else if (lp >= 3) liquidity = 55;
+    else if (pool >= 3) liquidity = 55;
     else liquidity = 22;
-    // 5. Safety — hard flags.
+    // 6. Safety — hard flags.
     const safety = isScam ? 0 : 100;
 
     const factors = [
-      { key: 'distribution', label: 'Holder distribution', weight: 0.35, score: distribution,
-        detail: 'Top 10 wallets hold ' + conc.toFixed(1) + '%' },
-      { key: 'clusters', label: 'Insider clusters', weight: 0.24, score: clusters,
+      { key: 'distribution', label: 'Distribution', weight: 0.30, score: distribution,
+        detail: 'Top 10 wallets ' + conc.toFixed(1) + '%' + (other >= 1 ? ' · ' + other.toFixed(1) + '% in other contracts' : '') },
+      { key: 'clusters', label: 'Insider clusters', weight: 0.22, score: clusters,
         detail: clusterCount ? clusterCount + ' cluster(s), largest ' + cluster.toFixed(1) + '%' : 'No linked wallet groups' },
-      { key: 'base', label: 'Holder base', weight: 0.15, score: base,
+      { key: 'creator', label: 'Creator supply', weight: 0.13, score: creatorScore,
+        detail: creatorPct == null ? 'Creator holdings unknown' : 'Creator holds ' + creatorPct.toFixed(2) + '%' },
+      { key: 'base', label: 'Holder base', weight: 0.13, score: base,
         detail: holders.toLocaleString() + ' holders' },
-      { key: 'liquidity', label: 'Liquidity', weight: 0.16, score: liquidity,
-        detail: isNoxa ? 'NOXA LP locked · ' + lp.toFixed(1) + '% in pool' : (lp >= 3 ? lp.toFixed(1) + '% in contracts' : 'No locked LP found') },
-      { key: 'safety', label: 'Contract safety', weight: 0.10, score: safety,
+      { key: 'liquidity', label: 'Liquidity', weight: 0.15, score: liquidity,
+        detail: isNoxa ? 'NOXA LP locked · ' + pool.toFixed(1) + '% in pool' : (pool >= 3 ? pool.toFixed(1) + '% in a pool' : 'No locked LP found') },
+      { key: 'safety', label: 'Contract safety', weight: 0.07, score: safety,
         detail: isScam ? 'Flagged as scam' : 'No hard flags' }
     ];
 
     let overall = factors.reduce((s, f) => s + f.score * f.weight, 0);
-    if (isScam) overall = Math.min(overall, 20); // scam flag caps the score hard
+    if (isScam) overall = Math.min(overall, 20);
     overall = Math.round(overall);
 
     return Object.assign({ overall }, grade(overall), { factors });

@@ -3,7 +3,7 @@
 
   "brand": {
     "name": "HoodScope",
-    "tagline": "See who really holds it.",
+    "tagline": "Lock on. Never miss.",
     "sub": "X-ray vision for Robinhood Chain tokens.",
     "twitter": "https://x.com/",
     "docsUrl": ""
@@ -32,7 +32,8 @@
     "url": "https://fun.noxa.fi/robinhood",
     "factory": "0xd9ec2db5f3d1b236843925949fe5bd8a3836fccb",
     "tokenLaunchedTopic": "0xdb51ea9ad51ab453a65a4cb7e60c3cb378c9501bb002609f8f97778fb6c4235a",
-    "launchFactorySelector": "0x536dac9b"
+    "launchFactorySelector": "0x536dac9b",
+    "liquidityPoolSelector": "0x665a11ca"
   },
 
   "feed": {

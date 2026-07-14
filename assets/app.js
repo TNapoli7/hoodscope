@@ -5,7 +5,7 @@
   const CLPAL = ['#ff8f3f', '#c77dff', '#4dd2ff', '#ff5d8f', '#ffd23f', '#8f7dff', '#3fe0c5', '#ff6b6b'];
   const CA_RE = /^0x[a-fA-F0-9]{40}$/;
   let CFG = null;
-  const state = { token: null, nodes: [], edges: [], clusters: [], nodeCluster: null, clusterColor: new Map(), hideContracts: true, score: null, isNoxa: false, map: null, activeCluster: null };
+  const state = { token: null, nodes: [], edges: [], clusters: [], nodeCluster: null, clusterColor: new Map(), hideContracts: true, score: null, isNoxa: false, map: null, activeCluster: null, creator: null, poolPct: 0, otherContractPct: 0 };
 
   async function boot() {
     CFG = await fetch('config.json').then((r) => r.json());
@@ -59,7 +59,7 @@
 
   async function loadToken(addr) {
     const root = document.querySelector('#app-root');
-    root.innerHTML = loading('Reading token…');
+    root.innerHTML = loading('Locking on…');
     let token;
     try { token = await HoodAPI.token(addr); }
     catch (e) { root.innerHTML = '<div class="empty"><h2 style="color:var(--text)">Token not found</h2><p>No ERC-20 at <span class="mono">' + esc(addr) + '</span> on Robinhood Chain.</p></div>'; return; }
@@ -69,12 +69,20 @@
 
     root.querySelector('.lt') && (root.querySelector('.lt').textContent = 'Fetching holders…');
     const hLimit = HoodGate.limit('holders');
-    const [holders, isNoxa] = await Promise.all([HoodAPI.holders(addr, hLimit), HoodAPI.isNoxa(addr).catch(() => false)]);
+    const [holders, isNoxa, creator, poolAddr] = await Promise.all([
+      HoodAPI.holders(addr, hLimit),
+      HoodAPI.isNoxa(addr).catch(() => false),
+      HoodAPI.creator(addr).catch(() => null),
+      HoodAPI.poolAddress(addr).catch(() => null)
+    ]);
     state.isNoxa = isNoxa;
+    if (!holders.length) { root.innerHTML = incompleteState(addr); return; }
 
+    const pool = poolAddr ? poolAddr.toLowerCase() : null;
     state.nodes = holders.map((h) => {
       const amt = U.toUnits(h.value, dec);
-      return { id: h.hash, pct: U.pct(amt, supply), amt, isContract: h.isContract, isScam: h.isScam, label: h.label };
+      const isPool = h.isContract && ((pool && h.hash.toLowerCase() === pool) || /pool|pair/i.test(h.label || ''));
+      return { id: h.hash, pct: U.pct(amt, supply), amt, isContract: h.isContract, isScam: h.isScam, label: h.label, pool: isPool };
     }).filter((n) => n.pct > 0);
 
     root.querySelector('.lt') && (root.querySelector('.lt').textContent = 'Mapping wallet connections…');
@@ -111,18 +119,24 @@
     // signals + score
     const walletsSorted = [...state.nodes].filter((n) => !n.isContract).sort((a, b) => b.pct - a.pct);
     const top10Wallet = walletsSorted.slice(0, 10).reduce((s, n) => s + n.pct, 0);
-    const lpPct = state.nodes.filter((n) => n.isContract).reduce((s, n) => s + n.pct, 0);
+    const poolPct = state.nodes.filter((n) => n.pool).reduce((s, n) => s + n.pct, 0);
+    const otherContractPct = state.nodes.filter((n) => n.isContract && !n.pool).reduce((s, n) => s + n.pct, 0);
+    let creatorPct = null;
+    if (creator && creator.balanceRaw) creatorPct = U.pct(U.toUnits(creator.balanceRaw, dec), supply);
+    state.creator = creator ? { addr: creator.deployer, pct: creatorPct } : null;
+    state.poolPct = poolPct; state.otherContractPct = otherContractPct;
     const isScam = state.nodes.some((n) => n.isScam) || token.reputation === 'scam';
     state.score = HoodScore.score({
       holdersCount: +token.holders_count || state.nodes.length,
       nodesCount: state.nodes.length,
       top10WalletPct: top10Wallet,
+      otherContractPct,
       largestClusterPct: state.clusters[0] ? state.clusters[0].supplyPct : 0,
       clusterCount: state.clusters.length,
-      lpPct, isNoxa, isScam
+      poolPct, creatorPct, isNoxa, isScam
     });
 
-    renderTracker(top10Wallet, lpPct);
+    renderTracker(top10Wallet, poolPct);
   }
 
   function nodeColor(n) {
@@ -133,12 +147,14 @@
     return '#00C805';
   }
 
-  function renderTracker(top10Wallet, lpPct) {
+  function renderTracker(top10Wallet, poolPct) {
     const t = state.token, root = document.querySelector('#app-root'), sc = state.score;
     const sym = t.symbol || '?';
-    const icon = t.icon_url ? '<img src="' + t.icon_url + '">' : esc(sym.slice(0, 3));
+    const icon = safeIcon(t.icon_url) ? '<img src="' + esc(t.icon_url) + '" onerror="this.remove()">' : esc(sym.slice(0, 3));
     const holders = t.holders_count ? +t.holders_count : state.nodes.length;
     const clPct = state.clusters.reduce((s, c) => s + c.supplyPct, 0);
+    const cr = state.creator, crPct = cr ? cr.pct : null;
+    const other = state.otherContractPct;
 
     root.innerHTML =
       '<div class="app-head">' +
@@ -147,6 +163,7 @@
         (state.isNoxa ? ' <span class="badge g">◆ NOXA</span>' : ' <span class="badge n">non-NOXA</span>') + '</h1>' +
         '<div class="addr mono"><span id="copyca" title="copy">' + U.short(t.address_hash, 10) + '</span> · <a target="_blank" href="' + CFG.chain.explorer + '/token/' + t.address_hash + '">explorer ↗</a></div></div></div>' +
         '<div style="flex:1"></div>' +
+        '<div class="hm"><span>Holders</span><b>' + U.fmtNum(holders, 0) + '</b></div>' +
         (t.circulating_market_cap ? '<div class="hm"><span>Market cap</span><b>' + U.fmtUsd(+t.circulating_market_cap) + '</b></div>' : '') +
         (CFG.coin && CFG.coin.buyUrl ? '<a class="btn primary sm" target="_blank" href="' + CFG.coin.buyUrl + '">Get $' + esc(CFG.coin.symbol) + '</a>' : '') +
       '</div>' +
@@ -154,15 +171,19 @@
       '<div class="verdict">' +
         '<div class="gauge">' + gauge(sc) + '</div>' +
         '<div class="vbody">' +
-          '<div class="vtop"><span class="vlabel">HoodScore</span><span class="vband" style="color:' + sc.color + '">' + sc.band + '</span></div>' +
+          '<div class="vtop"><span class="vlabel">HoodScore <button id="hs-info" class="infobtn" title="How is this calculated?">?</button></span>' +
+            '<span class="vband" style="color:' + sc.color + '">' + sc.band + '</span>' +
+            '<span class="vsub">distribution &amp; risk read — not a safety guarantee</span></div>' +
           '<div class="signals">' +
-            signal(state.isNoxa ? 'ok' : 'warn', 'Liquidity', state.isNoxa ? 'Locked · NOXA' : (lpPct >= 3 ? U.fmtPct(lpPct) + ' in LP' : 'Not locked')) +
+            signal(crPct == null ? 'na' : crPct > 10 ? 'bad' : crPct > 4 ? 'warn' : 'ok', 'Creator holds', crPct == null ? '—' : U.fmtPct(crPct)) +
             signal(top10Wallet > 40 ? 'bad' : top10Wallet > 22 ? 'warn' : 'ok', 'Top 10 wallets', U.fmtPct(top10Wallet)) +
             signal(clPct > 15 ? 'bad' : state.clusters.length ? 'warn' : 'ok', 'Insider clusters', state.clusters.length ? state.clusters.length + ' · ' + U.fmtPct(clPct) : 'None') +
-            signal(holders > 500 ? 'ok' : holders > 80 ? 'warn' : 'bad', 'Holders', U.fmtNum(holders, 0)) +
+            signal(state.isNoxa ? 'ok' : poolPct >= 3 ? 'warn' : 'bad', 'Liquidity', state.isNoxa ? 'Locked · NOXA' : (poolPct >= 3 ? U.fmtPct(poolPct) + ' in pool' : 'Not locked')) +
           '</div>' +
+          (other >= 5 ? '<div class="warnrow">⚠ ' + U.fmtPct(other) + ' of supply sits in non-pool contracts (multisig / vesting) — counts as concentration.</div>' : '') +
           '<div class="factorstrip">' + sc.factors.map(factorRow).join('') + '</div>' +
         '</div>' +
+        methodologyPopover() +
       '</div>' +
 
       '<div class="layout">' +
@@ -184,11 +205,23 @@
     document.querySelector('#tgl-contracts').addEventListener('change', (e) => { state.hideContracts = e.target.checked; state.activeCluster = null; drawMap(); });
     document.querySelector('#map-reset').addEventListener('click', () => { state.activeCluster = null; drawMap(); });
     wireClusterUI();
+    const info = document.querySelector('#hs-info'), pop = document.querySelector('#hs-pop');
+    if (info && pop) {
+      info.addEventListener('click', (e) => { e.stopPropagation(); pop.classList.toggle('hide'); });
+      document.addEventListener('click', (e) => { if (!pop.contains(e.target) && e.target !== info) pop.classList.add('hide'); });
+    }
     const ca = document.querySelector('#copyca');
     if (ca) ca.addEventListener('click', () => { navigator.clipboard && navigator.clipboard.writeText(t.address_hash); ca.textContent = 'copied ✓'; setTimeout(() => ca.textContent = U.short(t.address_hash, 10), 1200); });
   }
 
-  const SIGN = { ok: { c: '#2fd16b', i: '✓' }, warn: { c: '#ffb020', i: '!' }, bad: { c: '#ff4d4d', i: '✕' } };
+  const SIGN = { ok: { c: '#2fd16b' }, warn: { c: '#ffb020' }, bad: { c: '#ff4d4d' }, na: { c: '#69727d' } };
+  function safeIcon(u) { return typeof u === 'string' && /^https:\/\//i.test(u) && !/["'<>]/.test(u); }
+  function methodologyPopover() {
+    const rows = (state.score.factors || []).map((f) => '<div class="mp-row"><span>' + f.label + '</span><b>' + Math.round(f.weight * 100) + '%</b></div>').join('');
+    return '<div class="methodology hide" id="hs-pop"><div class="mp-h">How HoodScore works</div>' +
+      '<div class="mp-note">A 0–100 read of holder distribution and rug risk, from public on-chain data (top ' + CFG.tracker.topHoldersFree + ' holders). Weighted factors:</div>' +
+      rows + '<div class="mp-foot">Heuristic — not financial advice. A high score is not a guarantee.</div></div>';
+  }
   function signal(state_, label, val) {
     const s = SIGN[state_];
     return '<div class="sig"><span class="sdot" style="background:' + s.c + '"></span>' +
@@ -290,8 +323,13 @@
         '<a class="h-addr" target="_blank" href="' + CFG.chain.explorer + '/address/' + n.id + '">' + (n.label ? esc(n.label) : U.short(n.id, 6)) + '</a>' +
         tag + '<span class="h-pct">' + U.fmtPct(n.pct) + '</span></div>';
     }).join('');
-    return '<div class="panel"><div class="phead"><h3>Top holders</h3></div><div class="pbody scroll">' + rows + '</div></div>';
+    const total = state.token && state.token.holders_count ? U.fmtNum(+state.token.holders_count, 0) : state.nodes.length;
+    return '<div class="panel"><div class="phead"><h3>Top holders</h3><span class="faint" style="font-size:12px">top ' + Math.min(20, state.nodes.length) + ' of ' + total + '</span></div><div class="pbody scroll">' + rows + '</div></div>';
   }
+
+  const incompleteState = (addr) => '<div class="empty"><h2 style="color:var(--text)">Couldn\'t read holders</h2>' +
+    '<p>The explorer returned no holder data for <span class="mono">' + esc(U.short(addr, 8)) + '</span> right now — it may be brand-new or the API is busy. Try again in a moment.</p>' +
+    '<button class="btn primary sm" onclick="location.reload()">Retry scan</button></div>';
 
   function tip(d, e) {
     const el = document.querySelector('#tip');
@@ -317,7 +355,7 @@
     CFG = payload.cfg;
     HoodAPI.init(CFG); HoodGate.init(CFG);
     state.token = payload.token;
-    state.nodes = payload.nodes;
+    state.nodes = payload.nodes.map((n) => Object.assign({}, n, { pool: n.pool != null ? n.pool : (n.isContract && /pool|pair/i.test(n.label || '')) }));
     state.edges = payload.edges || [];
     const cl = HoodClusters.detect(state.nodes, state.edges, { excludeContracts: true });
     state.clusters = cl.clusters; state.nodeCluster = cl.nodeCluster;
@@ -325,15 +363,19 @@
     state.clusters.forEach((c, i) => state.clusterColor.set(c.id, CLPAL[i % CLPAL.length]));
     const wallets = [...state.nodes].filter((n) => !n.isContract).sort((a, b) => b.pct - a.pct);
     const top10 = wallets.slice(0, 10).reduce((s, n) => s + n.pct, 0);
-    const lp = state.nodes.filter((n) => n.isContract).reduce((s, n) => s + n.pct, 0);
+    const poolPct = state.nodes.filter((n) => n.pool).reduce((s, n) => s + n.pct, 0);
+    const otherContractPct = state.nodes.filter((n) => n.isContract && !n.pool).reduce((s, n) => s + n.pct, 0);
+    const creatorPct = payload.creatorPct != null ? payload.creatorPct : null;
+    state.creator = creatorPct != null ? { addr: payload.creatorAddr || '0x0', pct: creatorPct } : null;
+    state.poolPct = poolPct; state.otherContractPct = otherContractPct;
     state.isNoxa = !!payload.isNoxa;
     state.hideContracts = payload.hideContracts != null ? payload.hideContracts : true;
     state.score = HoodScore.score({
       holdersCount: +payload.token.holders_count || state.nodes.length, nodesCount: state.nodes.length,
-      top10WalletPct: top10, largestClusterPct: state.clusters[0] ? state.clusters[0].supplyPct : 0,
-      clusterCount: state.clusters.length, lpPct: lp, isNoxa: state.isNoxa, isScam: false
+      top10WalletPct: top10, otherContractPct, largestClusterPct: state.clusters[0] ? state.clusters[0].supplyPct : 0,
+      clusterCount: state.clusters.length, poolPct, creatorPct, isNoxa: state.isNoxa, isScam: false
     });
-    renderTracker(top10, lp);
+    renderTracker(top10, poolPct);
   }
 
   global.HoodScope = { initHome, initApp, boot, demo };

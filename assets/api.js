@@ -93,6 +93,49 @@
       return out.filter(Boolean);
     },
 
+    /* ---- creator/dev holdings: deployer from the TokenLaunched event + its live balance ----
+       Returns { deployer, balanceRaw } or null (non-NOXA / not found). */
+    async creator(tokenAddr) {
+      const lp = CFG.launchpad;
+      if (!lp || !lp.factory) return null;
+      const padded = '0x' + tokenAddr.toLowerCase().replace(/^0x/, '').padStart(64, '0');
+      let deployer = null;
+      try {
+        const r = await get('/addresses/' + lp.factory + '/logs', { topic: padded });
+        const topic0 = (lp.tokenLaunchedTopic || '').toLowerCase();
+        const log = (r.items || []).find((l) => l.topics && (l.topics[0] || '').toLowerCase() === topic0 && (l.topics[1] || '').toLowerCase() === padded);
+        if (log && log.topics[2]) deployer = '0x' + log.topics[2].slice(-40);
+      } catch (e) { return null; }
+      if (!deployer || /^0x0+$/.test(deployer)) return null;
+      let balanceRaw = '0';
+      try {
+        const data = '0x70a08231' + deployer.slice(2).padStart(64, '0');
+        const res = await fetch(CFG.chain.rpcUrl, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: tokenAddr, data }, 'latest'] })
+        }).then((r) => r.json());
+        if (res.result && res.result !== '0x') balanceRaw = BigInt(res.result).toString();
+      } catch (e) {}
+      return { deployer, balanceRaw };
+    },
+
+    /* ---- resolve the token's LP pool address on-chain (NOXA liquidityPool()) ---- */
+    async poolAddress(tokenAddr) {
+      const sel = CFG.launchpad && CFG.launchpad.liquidityPoolSelector;
+      if (!sel) return null;
+      try {
+        const res = await fetch(CFG.chain.rpcUrl, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: tokenAddr, data: sel }, 'latest'] })
+        }).then((r) => r.json());
+        if (res.result && res.result !== '0x') {
+          const a = '0x' + res.result.slice(-40).toLowerCase();
+          if (!/^0x0+$/.test(a)) return a;
+        }
+      } catch (e) {}
+      return null;
+    },
+
     /* ---- verify a token was launched via NOXA (token.launchFactory() == factory) ---- */
     async isNoxa(tokenAddr) {
       try {

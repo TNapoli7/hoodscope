@@ -121,6 +121,18 @@
       vg.addColorStop(0, 'rgba(0,200,5,0.06)'); vg.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
+      // scope reticle — "lock on" viewfinder (screen space)
+      const m = 16, L = 22;
+      ctx.strokeStyle = 'rgba(0,200,5,0.26)'; ctx.lineWidth = 1.5; ctx.beginPath();
+      ctx.moveTo(m, m + L); ctx.lineTo(m, m); ctx.lineTo(m + L, m);
+      ctx.moveTo(W - m - L, m); ctx.lineTo(W - m, m); ctx.lineTo(W - m, m + L);
+      ctx.moveTo(W - m, H - m - L); ctx.lineTo(W - m, H - m); ctx.lineTo(W - m - L, H - m);
+      ctx.moveTo(m + L, H - m); ctx.lineTo(m, H - m); ctx.lineTo(m, H - m - L);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,200,5,0.13)'; ctx.lineWidth = 1;
+      const cx = W / 2, cy = H / 2, cs = 9; ctx.beginPath();
+      ctx.moveTo(cx - cs, cy); ctx.lineTo(cx + cs, cy); ctx.moveTo(cx, cy - cs); ctx.lineTo(cx, cy + cs); ctx.stroke();
+
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
       ctx.translate(cam.x, cam.y); ctx.scale(cam.k, cam.k);
 
